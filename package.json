@@ -1,0 +1,16 @@
+{
+  "name": "openphone-server",
+  "version": "3.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1",
+    "axios": "^1.7.9",
+    "uuid": "^11.0.3",
+    "cors": "^2.8.5",
+    "firebase": "^11.1.0"
+  }
+}
