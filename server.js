@@ -1,4 +1,6 @@
-require('dotenv').config();
+// 1. Load environment variables (for local testing)
+try { require('dotenv').config(); } catch (e) { console.log("No .env file found, relying on system variables."); }
+
 const express    = require('express');
 const helmet     = require('helmet');
 const cors       = require('cors');
@@ -14,30 +16,38 @@ const VIEWER_TOKEN = process.env.VIEWER_TOKEN || 'super_secret_viewer_token_123'
 const TOKEN_PEPPER = process.env.TOKEN_PEPPER || 'my_secret_pepper_string_12345';
 const DEFAULT_RETENTION = Number(process.env.RETENTION_DAYS || 30);
 
+// Ensure MASTER_KEY is exactly 32 bytes
 const MASTER_KEY = Buffer.from(process.env.MASTER_KEY_B64 || 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=', 'base64');
 if (MASTER_KEY.length !== 32) {
-  console.error('MASTER_KEY_B64 must decode to exactly 32 bytes.');
+  console.error('❌ MASTER_KEY_B64 must decode to exactly 32 bytes.');
   process.exit(1);
 }
 
 /* ---------------- FIREBASE INITIALIZATION ---------------- */
+// Your exact database details
 const PROJECT_ID = "openphone-2a844";
 const DATABASE_URL = "https://openphone-2a844-default-rtdb.firebaseio.com";
 const STORAGE_BUCKET = "openphone-2a844.firebasestorage.app";
+
+// Fix newline issues with private keys on Render
+const privateKey = process.env.FIREBASE_PRIVATE_KEY 
+    ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') 
+    : undefined;
 
 try {
   admin.initializeApp({
     credential: admin.credential.cert({
       projectId:   PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey:  (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n')
+      privateKey:  privateKey
     }),
     storageBucket: STORAGE_BUCKET,
     databaseURL: DATABASE_URL
   });
   console.log("✅ Connected to Firebase Project: " + PROJECT_ID);
 } catch (error) {
-  console.error("❌ Firebase Admin initialization error. Did you set the .env file?");
+  console.error("❌ Firebase Admin initialization error. Check your Environment Variables on Render!");
+  console.error(error.message);
   process.exit(1);
 }
 
@@ -74,7 +84,14 @@ const app = express();
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+
+// FIXED: Serve HTML files from the ROOT directory (since they are not in a 'public' folder)
+app.use(express.static(__dirname));
+
+// Redirect homepage to the agreement page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'agreement.html'));
+});
 
 const apiLimiter = rateLimit({ windowMs: 60_000, max: 60 });
 app.use('/api/', apiLimiter);
@@ -152,6 +169,7 @@ app.post('/api/recordings', requireConsent, upload.single('audio'), async (req, 
     const direction   = req.body.direction === 'outgoing' ? 'outgoing' : 'incoming';
     const expiresAt   = new Date(Date.now() + req.consent.retentionDays * 86400_000);
 
+    // 1. Encrypt and Save to Storage
     const encrypted = encryptBuffer(req.file.buffer);
     const storagePath = `recordings/${req.consent.id}/${recordingId}.enc`;
 
@@ -171,9 +189,10 @@ app.post('/api/recordings', requireConsent, upload.single('audio'), async (req, 
       expiresAt
     };
 
+    // 2. Save to Firestore
     await db.collection('recordings').doc(recordingId).set(metaData);
 
-    // Write to your public RTDB node (openphone)
+    // 3. Save to Realtime Database (RTDB) - to your public 'openphone' node
     await rtdb.ref(`openphone/recordings/${req.consent.id}/${recordingId}`).set({
       recordingId,
       storagePath,
@@ -220,6 +239,7 @@ app.get('/api/recordings/:id/audio', requireViewer, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.send(plain);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Failed to decrypt file" });
   }
 });
@@ -252,8 +272,10 @@ async function sweepExpired() {
     } catch (e) {}
     await doc.ref.delete();
   }
+  console.log(`Swept ${snap.size} expired recordings`);
 }
 setInterval(() => sweepExpired().catch(console.error), 60 * 60 * 1000);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
 app.listen(PORT, () => console.log(`🚀 Server running securely on port ${PORT}`));
