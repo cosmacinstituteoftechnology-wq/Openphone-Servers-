@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ClearCall - Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --sidebar-bg: #111827;
+    --sidebar-hover: #1f2937;
+    --bg-color: #f3f4f6;
+    --text-main: #111827;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --danger: #ef4444;
+    --success: #10b981;
+  }
+  * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
+  body { margin: 0; background: var(--bg-color); color: var(--text-main); display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 260px; background: var(--sidebar-bg); color: #fff; display: flex; flex-direction: column; padding: 24px 0; flex-shrink: 0;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; padding: 0 24px; margin-bottom: 40px; }
+  .logo svg { width: 28px; height: 28px; color: #818cf8; }
+  
+  .nav { display: flex; flex-direction: column; gap: 4px; padding: 0 12px; flex: 1; }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; color: #9ca3af; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.2s;
+  }
+  .nav-item:hover { background: var(--sidebar-hover); color: #fff; }
+  .nav-item.active { background: var(--primary); color: #fff; }
+  .nav-item svg { width: 18px; height: 18px; }
+
+  .sidebar-footer { padding: 24px; font-size: 12px; color: #6b7280; display: flex; flex-direction: column; gap: 4px; margin-top: auto; }
+  .sidebar-footer strong { color: #9ca3af; }
+
+  /* Main Content */
+  .main-content { flex: 1; padding: 40px; display: flex; flex-direction: column; max-width: 1200px; margin: 0 auto; width: 100%; }
+  
+  .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .header-row h1 { margin: 0; font-size: 24px; }
+  .secure-badge { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); font-weight: 500; }
+  .secure-badge svg { width: 16px; height: 16px; color: var(--primary); }
+  
+  .subtitle { color: var(--text-muted); font-size: 14px; margin-top: 0; margin-bottom: 30px; }
+
+  /* Auth Panel */
+  .auth-panel {
+    background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-end; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .input-group { flex: 1; }
+  .input-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #374151; }
+  .input-wrapper { position: relative; }
+  .input-wrapper input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; }
+  .input-wrapper input:focus { border-color: var(--primary); }
+  .toggle-pwd { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0; }
+  
+  .btn-primary { background: var(--primary); color: #fff; border: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; height: 42px; transition: background 0.2s; }
+  .btn-primary:hover { background: var(--primary-hover); }
+
+  /* Status */
+  .status-bar { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; margin-bottom: 16px; color: var(--text-muted); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+
+  /* Recording List */
+  .recording-list { display: flex; flex-direction: column; gap: 12px; }
+  .recording-card {
+    background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+  
+  .call-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
+  .call-icon.incoming { background: #eff6ff; color: #3b82f6; }
+  .call-icon.outgoing { background: #ecfdf5; color: #10b981; }
+  .call-icon.missed { background: #fef2f2; color: #ef4444; }
+  .call-icon svg { width: 20px; height: 20px; }
+
+  .call-details { width: 180px; flex-shrink: 0; }
+  .call-type { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .call-meta { font-size: 12px; color: var(--text-muted); }
+  
+  .call-expiry { width: 140px; flex-shrink: 0; font-size: 12px; color: var(--text-muted); }
+
+  /* Custom Audio Player */
+  .audio-player { flex: 1; display: flex; align-items: center; gap: 12px; }
+  .play-btn { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: #fff; display: flex; justify-content: center; align-items: center; cursor: pointer; color: var(--text-main); transition: all 0.2s; }
+  .play-btn:hover { background: #f9fafb; border-color: #d1d5db; }
+  .play-btn svg { width: 14px; height: 14px; margin-left: 2px; }
+  
+  .progress-container { flex: 1; display: flex; align-items: center; gap: 12px; }
+  .time-display { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; width: 80px; text-align: center; }
+  .progress-bar { flex: 1; height: 4px; background: #e5e7eb; border-radius: 2px; position: relative; cursor: pointer; }
+  .progress-fill { position: absolute; left: 0; top: 0; height: 100%; background: var(--primary); border-radius: 2px; width: 0%; }
+  .volume-icon { color: var(--text-muted); }
+  .volume-icon svg { width: 16px; height: 16px; }
+
+  .btn-delete {
+    background: #fff; color: var(--danger); border: 1px solid #fca5a5; padding: 6px 16px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;
+  }
+  .btn-delete:hover { background: #fef2f2; }
+  .btn-delete svg { width: 14px; height: 14px; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+    ClearCall
+  </div>
+  
+  <nav class="nav">
+    <a href="#" class="nav-item active">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+      Recordings
+    </a>
+    <a href="#" class="nav-item">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      Consent
+    </a>
+    <a href="#" class="nav-item">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Settings
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <strong>Private dashboard</strong>
+    <span>Requires viewer token</span>
+  </div>
+</aside>
+
+<!-- Main Content -->
+<main class="main-content">
+  <div class="header-row">
+    <h1>Recordings</h1>
+    <div class="secure-badge">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+      Secure Access
+    </div>
+  </div>
+  <p class="subtitle">Access your recordings using your viewer token and consent ID.</p>
+
+  <!-- Auth Panel -->
+  <div class="auth-panel">
+    <div class="input-group">
+      <label>Viewer token</label>
+      <div class="input-wrapper">
+        <input type="password" id="viewerToken" placeholder="••••••••••••" />
+        <button class="toggle-pwd" onclick="togglePwd('viewerToken')">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="input-group">
+      <label>Consent ID</label>
+      <input type="text" id="consentId" placeholder="Enter consent ID" />
+    </div>
+    <button class="btn-primary" id="loadBtn">Load</button>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Enter credentials to load recordings</span>
+  </div>
+
+  <!-- Recordings List -->
+  <div class="recording-list" id="list">
+    <!-- Items injected here -->
+  </div>
+</main>
+
+<script>
+function togglePwd(id) {
+  const el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+async function api(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers, {
+    'x-viewer-token': document.getElementById('viewerToken').value.trim()
+  });
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+  return res;
+}
+
+document.getElementById('loadBtn').addEventListener('click', async () => {
+  const consentId = document.getElementById('consentId').value.trim();
+  const token = document.getElementById('viewerToken').value.trim();
+  if (!consentId || !token) return alert('Both fields are required.');
+
+  const listEl = document.getElementById('list');
+  const statusText = document.getElementById('statusText');
+  const statusDot = document.getElementById('statusDot');
+  
+  listEl.innerHTML = '';
+  statusText.textContent = 'Loading...';
+  statusDot.style.background = '#f59e0b';
+
+  try {
+    const res = await api(`/api/recordings?consentId=${encodeURIComponent(consentId)}`);
+    const items = await res.json();
+    
+    statusText.textContent = `${items.length} recording(s) loaded`;
+    statusDot.style.background = '#10b981';
+
+    items.forEach(r => {
+      const when = r.startedAt?.seconds ? new Date(r.startedAt.seconds * 1000) : new Date(r.startedAt);
+      const exp = r.expiresAt?.seconds ? new Date(r.expiresAt.seconds * 1000) : new Date(r.expiresAt);
+      
+      const isIncoming = r.direction === 'incoming';
+      const iconClass = isIncoming ? 'incoming' : 'outgoing';
+      const iconSvg = isIncoming 
+        ? '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>'
+        : '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>';
+
+      const el = document.createElement('div');
+      el.className = 'recording-card';
+      el.innerHTML = `
+        <div class="call-icon ${iconClass}">${iconSvg}</div>
+        <div class="call-details">
+          <div class="call-type" style="text-transform: capitalize;">${r.direction} Call</div>
+          <div class="call-meta">${when.toLocaleString()} • ${Math.round(r.durationSec)}s</div>
+        </div>
+        <div class="call-expiry">Expires: ${exp.toLocaleDateString()}</div>
+        
+        <div class="audio-player">
+          <button class="play-btn" data-src="/api/recordings/${r.id}/audio">
+            <svg id="icon-play-${r.id}" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="progress-container">
+            <span class="time-display">0:00 / 0:00</span>
+            <div class="progress-bar"><div class="progress-fill"></div></div>
+            <div class="volume-icon"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg></div>
+          </div>
+        </div>
+
+        <button class="btn-delete" data-id="${r.id}">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Delete
+        </button>
+      `;
+
+      // Audio Player Logic
+      const playBtn = el.querySelector('.play-btn');
+      const timeDisplay = el.querySelector('.time-display');
+      const progressFill = el.querySelector('.progress-fill');
+      const progressBar = el.querySelector('.progress-bar');
+      let audio = null;
+
+      function formatTime(sec) {
+        if (isNaN(sec)) return '0:00';
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+      }
+
+      playBtn.addEventListener('click', async () => {
+        if (!audio) {
+          playBtn.innerHTML = '<span style="font-size:10px">...</span>';
+          try {
+            const audioRes = await api(playBtn.dataset.src);
+            const blob = await audioRes.blob();
+            audio = new Audio(URL.createObjectURL(blob));
+            
+            audio.addEventListener('loadedmetadata', () => {
+              timeDisplay.textContent = `0:00 / ${formatTime(audio.duration)}`;
+            });
+            audio.addEventListener('timeupdate', () => {
+              timeDisplay.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration)}`;
+              if (audio.duration) progressFill.style.width = `${(audio.currentTime / audio.duration) * 100}%`;
+            });
+            audio.addEventListener('ended', () => {
+              playBtn.innerHTML = '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+              progressFill.style.width = '0%';
+              audio.currentTime = 0;
+            });
+          } catch (e) {
+            alert('Error loading audio: ' + e.message);
+            playBtn.innerHTML = '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+            return;
+          }
+        }
+
+        if (audio.paused) {
+          audio.play();
+          playBtn.innerHTML = '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+        } else {
+          audio.pause();
+          playBtn.innerHTML = '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+        }
+      });
+
+      progressBar.addEventListener('click', (e) => {
+        if (!audio || !audio.duration) return;
+        const rect = progressBar.getBoundingClientRect();
+        const pct = (e.clientX - rect.left) / rect.width;
+        audio.currentTime = pct * audio.duration;
+      });
+
+      // Delete Logic
+      el.querySelector('.btn-delete').addEventListener('click', async (e) => {
+        if (!confirm('Delete this recording permanently?')) return;
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.textContent = 'Deleting...';
+        try {
+          await api(`/api/recordings/${r.id}/delete`, { method: 'POST' });
+          el.remove();
+        } catch (err) {
+          alert(err.message);
+          btn.disabled = false;
+          btn.innerHTML = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Delete';
+        }
+      });
+
+      listEl.appendChild(el);
+    });
+  } catch (e) {
+    statusText.textContent = 'Error: ' + e.message;
+    statusDot.style.background = '#ef4444';
+  }
+});
+</script>
+</body>
+</html>
