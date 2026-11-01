@@ -263,6 +263,15 @@ document.getElementById('form').addEventListener('submit', async (e) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
+    
+    // Check if the server actually returned JSON (prevents the "<!DOCTYPE" crash)
+    const contentType = res.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const textError = await res.text();
+      console.error("Server returned non-JSON response:", textError);
+      throw new Error(`Server Error (${res.status}). Please check your backend logs.`);
+    }
+
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Request failed');
 
