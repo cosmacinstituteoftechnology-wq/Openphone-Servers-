@@ -24,12 +24,10 @@ if (MASTER_KEY.length !== 32) {
 }
 
 /* ---------------- FIREBASE INITIALIZATION ---------------- */
-// Your exact database details
 const PROJECT_ID = "openphone-2a844";
 const DATABASE_URL = "https://openphone-2a844-default-rtdb.firebaseio.com";
 const STORAGE_BUCKET = "openphone-2a844.firebasestorage.app";
 
-// Fix newline issues with private keys on Render
 const privateKey = process.env.FIREBASE_PRIVATE_KEY 
     ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') 
     : undefined;
@@ -46,7 +44,7 @@ try {
   });
   console.log("✅ Connected to Firebase Project: " + PROJECT_ID);
 } catch (error) {
-  console.error("❌ Firebase Admin initialization error. Check your Environment Variables on Render!");
+  console.error("❌ Firebase Admin initialization error. Check your Environment Variables!");
   console.error(error.message);
   process.exit(1);
 }
@@ -85,10 +83,8 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
-// FIXED: Serve HTML files from the ROOT directory (since they are not in a 'public' folder)
 app.use(express.static(__dirname));
 
-// Redirect homepage to the agreement page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'agreement.html'));
 });
@@ -169,7 +165,6 @@ app.post('/api/recordings', requireConsent, upload.single('audio'), async (req, 
     const direction   = req.body.direction === 'outgoing' ? 'outgoing' : 'incoming';
     const expiresAt   = new Date(Date.now() + req.consent.retentionDays * 86400_000);
 
-    // 1. Encrypt and Save to Storage
     const encrypted = encryptBuffer(req.file.buffer);
     const storagePath = `recordings/${req.consent.id}/${recordingId}.enc`;
 
@@ -189,10 +184,8 @@ app.post('/api/recordings', requireConsent, upload.single('audio'), async (req, 
       expiresAt
     };
 
-    // 2. Save to Firestore
     await db.collection('recordings').doc(recordingId).set(metaData);
 
-    // 3. Save to Realtime Database (RTDB) - to your public 'openphone' node
     await rtdb.ref(`openphone/recordings/${req.consent.id}/${recordingId}`).set({
       recordingId,
       storagePath,
