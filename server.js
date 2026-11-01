@@ -20,12 +20,16 @@ const DEFAULT_RETENTION = Number(process.env.RETENTION_DAYS || 30);
 const MASTER_KEY = Buffer.from(process.env.MASTER_KEY_B64 || 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=', 'base64');
 if (MASTER_KEY.length !== 32) {
   console.error('❌ MASTER_KEY_B64 must decode to exactly 32 bytes.');
-  process.exit(1);
 }
 
 /* ---------------- FIREBASE INITIALIZATION ---------------- */
 // Use the downloaded JSON file for credentials
-const serviceAccount = require("./serviceAccountKey.json");
+let serviceAccount;
+try {
+  serviceAccount = require("./serviceAccountKey.json");
+} catch (err) {
+  console.error("❌ CRITICAL: serviceAccountKey.json file is missing or corrupted!");
+}
 
 try {
   admin.initializeApp({
@@ -37,7 +41,6 @@ try {
 } catch (error) {
   console.error("❌ Firebase Admin initialization error.");
   console.error(error.message);
-  process.exit(1);
 }
 
 const db     = admin.firestore();
@@ -74,6 +77,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
+// Serve static files (HTML)
 app.use(express.static(__dirname));
 
 app.get('/', (req, res) => {
@@ -105,7 +109,7 @@ async function requireConsent(req, res, next) {
     req.consent = { id, ...d };
     next();
   } catch (e) {
-    res.status(500).json({ error: 'consent check failed' });
+    res.status(500).json({ error: 'consent check failed: ' + e.message });
   }
 }
 
@@ -117,28 +121,37 @@ function requireViewer(req, res, next) {
 
 /* ---------------- CONSENT ENDPOINTS ---------------- */
 app.post('/api/consent', async (req, res) => {
-  const { personA, personB, deviceLabel, retentionDays,
-          agreedToCallerNotice, agreedToRevocation, agreedToLegalResponsibility } = req.body || {};
+  try {
+    const { personA, personB, deviceLabel, retentionDays,
+            agreedToCallerNotice, agreedToRevocation, agreedToLegalResponsibility } = req.body || {};
 
-  if (!personA || !personB || !deviceLabel) return res.status(400).json({ error: 'names and device required' });
-  if (!agreedToCallerNotice || !agreedToRevocation || !agreedToLegalResponsibility)
-    return res.status(400).json({ error: 'all consent boxes must be accepted' });
+    if (!personA || !personB || !deviceLabel) return res.status(400).json({ error: 'names and device required' });
+    if (!agreedToCallerNotice || !agreedToRevocation || !agreedToLegalResponsibility)
+      return res.status(400).json({ error: 'all consent boxes must be accepted' });
 
-  const days = Math.min(Math.max(Number(retentionDays) || DEFAULT_RETENTION, 1), 365);
-  const consentId    = crypto.randomUUID();
-  const consentToken = crypto.randomBytes(32).toString('hex');
+    const days = Math.min(Math.max(Number(retentionDays) || DEFAULT_RETENTION, 1), 365);
+    const consentId    = crypto.randomUUID();
+    const consentToken = crypto.randomBytes(32).toString('hex');
 
-  const record = {
-    personA, personB, deviceLabel,
-    retentionDays: days,
-    status: 'active',
-    tokenHash: hashToken(consentToken),
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    ipHash: hashNumber(req.ip || '')
-  };
+    const record = {
+      personA, personB, deviceLabel,
+      retentionDays: days,
+      status: 'active',
+      tokenHash: hashToken(consentToken),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      ipHash: hashNumber(req.ip || '')
+    };
 
-  await db.collection('consents').doc(consentId).set(record);
-  res.json({ consentId, consentToken, retentionDays: days });
+    // Write to Firestore
+    await db.collection('consents').doc(consentId).set(record);
+    
+    // Return success
+    res.json({ consentId, consentToken, retentionDays: days });
+  } catch (error) {
+    console.error("❌ Consent Error:", error);
+    // Return a JSON error instead of crashing
+    res.status(500).json({ error: 'Database error: ' + error.message });
+  }
 });
 
 app.get('/api/consent/:id/status', requireConsent, (req, res) => {
@@ -190,32 +203,36 @@ app.post('/api/recordings', requireConsent, upload.single('audio'), async (req, 
     res.json({ ok: true, recordingId, expiresAt });
   } catch (e) {
     console.error("Upload error:", e);
-    res.status(500).json({ error: 'upload failed' });
+    res.status(500).json({ error: 'upload failed: ' + e.message });
   }
 });
 
 app.get('/api/recordings', requireViewer, async (req, res) => {
-  const consentId = String(req.query.consentId || '');
-  if (!consentId) return res.status(400).json({ error: 'consentId required' });
+  try {
+    const consentId = String(req.query.consentId || '');
+    if (!consentId) return res.status(400).json({ error: 'consentId required' });
 
-  const snap = await db.collection('recordings')
-    .where('consentId', '==', consentId)
-    .where('status', '==', 'stored')
-    .orderBy('startedAt', 'desc')
-    .limit(200)
-    .get();
+    const snap = await db.collection('recordings')
+      .where('consentId', '==', consentId)
+      .where('status', '==', 'stored')
+      .orderBy('startedAt', 'desc')
+      .limit(200)
+      .get();
 
-  res.json(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    res.json(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch recordings: ' + e.message });
+  }
 });
 
 app.get('/api/recordings/:id/audio', requireViewer, async (req, res) => {
-  const snap = await db.collection('recordings').doc(req.params.id).get();
-  if (!snap.exists) return res.status(404).json({ error: 'not found' });
-
-  const d = snap.data();
-  if (d.status !== 'stored') return res.status(410).json({ error: 'recording no longer available' });
-
   try {
+    const snap = await db.collection('recordings').doc(req.params.id).get();
+    if (!snap.exists) return res.status(404).json({ error: 'not found' });
+
+    const d = snap.data();
+    if (d.status !== 'stored') return res.status(410).json({ error: 'recording no longer available' });
+
     const [buf] = await bucket.file(d.storagePath).download();
     const plain = decryptBuffer(buf);
 
@@ -224,42 +241,56 @@ app.get('/api/recordings/:id/audio', requireViewer, async (req, res) => {
     res.send(plain);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Failed to decrypt file" });
+    res.status(500).json({ error: "Failed to decrypt file: " + error.message });
   }
 });
 
 app.post('/api/recordings/:id/delete', requireViewer, async (req, res) => {
-  const ref  = db.collection('recordings').doc(req.params.id);
-  const snap = await ref.get();
-  if (!snap.exists) return res.status(404).json({ error: 'not found' });
+  try {
+    const ref  = db.collection('recordings').doc(req.params.id);
+    const snap = await ref.get();
+    if (!snap.exists) return res.status(404).json({ error: 'not found' });
 
-  const d = snap.data();
-  try { await bucket.file(d.storagePath).delete({ ignoreNotFound: true }); } catch (e) {}
-  
-  await ref.delete();
-  await rtdb.ref(`openphone/recordings/${d.consentId}/${req.params.id}`).remove();
+    const d = snap.data();
+    try { await bucket.file(d.storagePath).delete({ ignoreNotFound: true }); } catch (e) {}
+    
+    await ref.delete();
+    await rtdb.ref(`openphone/recordings/${d.consentId}/${req.params.id}`).remove();
 
-  res.json({ ok: true });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete: ' + e.message });
+  }
 });
 
 /* ---------------- RETENTION SWEEPER ---------------- */
 async function sweepExpired() {
-  const now = new Date();
-  const snap = await db.collection('recordings').where('expiresAt', '<', now).limit(200).get();
-  if (snap.empty) return;
+  try {
+    const now = new Date();
+    const snap = await db.collection('recordings').where('expiresAt', '<', now).limit(200).get();
+    if (snap.empty) return;
 
-  for (const doc of snap.docs) {
-    const d = doc.data();
-    try { 
-      await bucket.file(d.storagePath).delete({ ignoreNotFound: true }); 
-      await rtdb.ref(`openphone/recordings/${d.consentId}/${doc.id}`).remove();
-    } catch (e) {}
-    await doc.ref.delete();
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      try { 
+        await bucket.file(d.storagePath).delete({ ignoreNotFound: true }); 
+        await rtdb.ref(`openphone/recordings/${d.consentId}/${doc.id}`).remove();
+      } catch (e) {}
+      await doc.ref.delete();
+    }
+    console.log(`Swept ${snap.size} expired recordings`);
+  } catch (err) {
+    console.error("Sweeper error:", err);
   }
-  console.log(`Swept ${snap.size} expired recordings`);
 }
-setInterval(() => sweepExpired().catch(console.error), 60 * 60 * 1000);
+setInterval(sweepExpired, 60 * 60 * 1000);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
+// Global Error Handler to catch any missed errors
+app.use((err, req, res, next) => {
+  console.error("Global Error:", err);
+  res.status(500).json({ error: 'Internal Server Error: ' + err.message });
+});
 
 app.listen(PORT, () => console.log(`🚀 Server running securely on port ${PORT}`));
