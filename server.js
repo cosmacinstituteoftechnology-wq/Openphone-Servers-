@@ -24,27 +24,18 @@ if (MASTER_KEY.length !== 32) {
 }
 
 /* ---------------- FIREBASE INITIALIZATION ---------------- */
-const PROJECT_ID = "openphone-2a844";
-const DATABASE_URL = "https://openphone-2a844-default-rtdb.firebaseio.com";
-const STORAGE_BUCKET = "openphone-2a844.firebasestorage.app";
-
-const privateKey = process.env.FIREBASE_PRIVATE_KEY 
-    ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') 
-    : undefined;
+// Use the downloaded JSON file for credentials
+const serviceAccount = require("./serviceAccountKey.json");
 
 try {
   admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId:   PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey:  privateKey
-    }),
-    storageBucket: STORAGE_BUCKET,
-    databaseURL: DATABASE_URL
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: "https://openphone-2a844-default-rtdb.firebaseio.com",
+    storageBucket: "openphone-2a844.firebasestorage.app"
   });
-  console.log("✅ Connected to Firebase Project: " + PROJECT_ID);
+  console.log("✅ Connected to Firebase Project successfully!");
 } catch (error) {
-  console.error("❌ Firebase Admin initialization error. Check your Environment Variables!");
+  console.error("❌ Firebase Admin initialization error.");
   console.error(error.message);
   process.exit(1);
 }
