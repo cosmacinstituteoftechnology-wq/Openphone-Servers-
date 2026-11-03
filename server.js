@@ -8,7 +8,6 @@ const rateLimit  = require('express-rate-limit');
 const multer     = require('multer');
 const crypto     = require('crypto');
 const path       = require('path');
-const fs         = require('fs'); // Added for reliable file reading
 const admin      = require('firebase-admin');
 
 /* ---------------- CONFIG ---------------- */
@@ -24,15 +23,20 @@ if (MASTER_KEY.length !== 32) {
 }
 
 /* ---------------- FIREBASE INITIALIZATION ---------------- */
-let serviceAccount;
-try {
-  // Use path.join and fs.readFileSync to guarantee it finds the file on IIS/SmarterASP
-  const keyPath = path.join(__dirname, 'serviceAccountKey.json');
-  serviceAccount = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
-} catch (err) {
-  console.error("❌ CRITICAL ERROR: Cannot find or read serviceAccountKey.json. Please ensure it is in the /bank folder. Error:", err.message);
-  process.exit(1); // Stop the app so IIS doesn't show a silent 503
-}
+// Hardcoded credentials so we don't need the .json file anymore
+const serviceAccount = {
+  "type": "service_account",
+  "project_id": "openphone-2a844",
+  "private_key_id": "e666e75b44d8a36ec7b0554de860b2562f14aa3b",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDAo2hAylKBpYcB\nNU2pqjfQjRKDBheUtkRtDox0hK+G5wW4NMO7W9h2y1ccChA+qHCiks1mQ2hMoQRf\nfd2g+zKiHUcxYXsmABZPlcaF//4umN2BVz2WP6UwUMxbtdaE96ermXjCyoLh8TJW\nQY8iDKpE7jIgc3LjS8SLiR4joktFS+yZ1YIyTJvyLws5OcDoEl4JZcVdlauh+Ukr\nitKA5y8WHHdWB3/Hw9l4VlhKoa0jMXs0BoNYBH/f6vwzZFLeNBEUyFcgFYsCYnPR\n02g6SRAVH7941oqUW/VN+r1aXAA2dMpExBjJBaZeu6eQsYvnimKO1J0DiHbbkM9A\nBeJGeMd9AgMBAAECggEAHNpcyxeCtBhu2Cd7smXkZkA6/ZT0AzoplYwQTYNyJuqD\nWMvOZUmkamaabYC0Xi4scK08RoziGlgjp4naoDn/o3hvKV5Ia7CnptPwIDHviFst\nEipW9yIhQ9NWSIY70z6kxnb+N27Nm7ncqD65iYgMGLb0mxevpYu7rIqlEQFF9OLf\nq6oQszdwvK0m/3/Tk9A69CfUKyshHJa+yy2cbaOJQavAl6HVfejbb6WCzIIJJjJn\nMJIG4/5mFgRQFJcHe0saUA1dVmlXXAEgF3HcF6QgqjwVVzDc3203UOiZAgGEOfHw\nOx2k/1mOJvXwZVedj5xLibvXEGdOuIWSXUCM7IF/oQKBgQDs5aKEXw7EAQ/sWklK\nhnq9mmfmVsi/6KAuJR/RgdaiF9r6ifcsEC0v1N/nVt1d24rHNfU5zosp/V3+opUn\nMU0UsfzTpyolwKeiAja5BkF8StujSXC96HzZjo+cG9B5CPXVb2DFXU2LC2iz8Z0Y\n4Q/AvvrOYDSxqfDR0HGECNhttwKBgQDQLB8OllC5/8gFtn53Hu/pwpVVqfl1OXTE\nLlyeObFwsO3DpWb8uKy+R9hwEKQ9ih1HNskcuzNjH2kneoITnxCRRZgMPbNUbR0w\nuhJDtwyTn8nb1sXgRqCMq5mbOu6teh1BsIOpdVqznlPNkEQm5GwnZGr/xCBCYbVn\njzd3kBR0awKBgDdn/fq3wNxW40KEW1/y1AJEesiEw68e2Vfxlt+JXonKyoyOeCD2\nJ5toTnXs+xlYn7y4AgLjK+lGORW1MO1Zuo18k4VtM45g4NQjcGkV7XsEhxpJsvS3\ny3uWvD/mwXuNfPHOevOuPtSmdnafq/6FpQmPoVljZu+mr4xjFCmtZ/FBAoGABRq/\n3DS1YAo0lmdGLJeWnG3ICaS0WDqDcXgNj1es0S2VdvGsV9ATdEsAtKbD0Dp9w0xF\nnC2+8dRIWM55OA/zcQx60PoGVrCiQZqebgikB06ovXpDud8herGOf67vQVO4Oe8h\nG1ukULk2Jtk9wpJhUIn20bS2ccpBj3uEiar/xWcCgYEApEx9wDFEaCeU44XW8j40\nO1q1sLDSIDZa51IR3f1GEf9XFrGeZ6VcTQx0mfDqnCwpoJ5epBCEcmZOeWISwc5a\nSsNMSzMZzMgzz5DJRdFKvhV1uHojRtqJt6ykKQ+RQ4/D8pJp/2oYDab8YSMIQYD0\nLAyU2aoCePiPZrimqOk5e5g=\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@openphone-2a844.iam.gserviceaccount.com",
+  "client_id": "114251940539515101423",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40openphone-2a844.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+};
 
 try {
   admin.initializeApp({
@@ -43,7 +47,7 @@ try {
   console.log("✅ Connected to Firebase Project successfully!");
 } catch (error) {
   console.error("❌ Firebase Admin initialization error:", error.message);
-  process.exit(1); // Stop the app
+  process.exit(1);
 }
 
 const db     = admin.firestore();
@@ -80,7 +84,6 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
-// Serve static files (HTML)
 app.use(express.static(__dirname));
 
 app.get('/', (req, res) => {
@@ -145,14 +148,11 @@ app.post('/api/consent', async (req, res) => {
       ipHash: hashNumber(req.ip || '')
     };
 
-    // Write to Firestore
     await db.collection('consents').doc(consentId).set(record);
     
-    // Return success
     res.json({ consentId, consentToken, retentionDays: days });
   } catch (error) {
     console.error("❌ Consent Error:", error);
-    // Return a JSON error instead of crashing
     res.status(500).json({ error: 'Database error: ' + error.message });
   }
 });
@@ -290,7 +290,6 @@ setInterval(sweepExpired, 60 * 60 * 1000);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-// Global Error Handler to catch any missed errors
 app.use((err, req, res, next) => {
   console.error("Global Error:", err);
   res.status(500).json({ error: 'Internal Server Error: ' + err.message });
