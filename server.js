@@ -8,6 +8,7 @@ const rateLimit  = require('express-rate-limit');
 const multer     = require('multer');
 const crypto     = require('crypto');
 const path       = require('path');
+const fs         = require('fs'); // Added for reliable file reading
 const admin      = require('firebase-admin');
 
 /* ---------------- CONFIG ---------------- */
@@ -23,12 +24,14 @@ if (MASTER_KEY.length !== 32) {
 }
 
 /* ---------------- FIREBASE INITIALIZATION ---------------- */
-// Use the downloaded JSON file for credentials
 let serviceAccount;
 try {
-  serviceAccount = require("./serviceAccountKey.json");
+  // Use path.join and fs.readFileSync to guarantee it finds the file on IIS/SmarterASP
+  const keyPath = path.join(__dirname, 'serviceAccountKey.json');
+  serviceAccount = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
 } catch (err) {
-  console.error("❌ CRITICAL: serviceAccountKey.json file is missing or corrupted!");
+  console.error("❌ CRITICAL ERROR: Cannot find or read serviceAccountKey.json. Please ensure it is in the /bank folder. Error:", err.message);
+  process.exit(1); // Stop the app so IIS doesn't show a silent 503
 }
 
 try {
@@ -39,8 +42,8 @@ try {
   });
   console.log("✅ Connected to Firebase Project successfully!");
 } catch (error) {
-  console.error("❌ Firebase Admin initialization error.");
-  console.error(error.message);
+  console.error("❌ Firebase Admin initialization error:", error.message);
+  process.exit(1); // Stop the app
 }
 
 const db     = admin.firestore();
